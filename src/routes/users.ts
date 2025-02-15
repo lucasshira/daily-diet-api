@@ -10,7 +10,22 @@ export async function usersRoutes(app: FastifyInstance) {
   app.get('/users', async (request, reply) => {
     const users = await knex('users').select('*')
 
-    return { users }
+    return reply.send({ users })
+  })
+
+  // get a specific user by his id
+  app.get('/users/:id', async (request, reply) => {
+    const getUserParamsSchema = z.object({
+      id: z.string().uuid()
+    })
+
+    const { id } = getUserParamsSchema.parse(request.params)
+
+    const user = await knex('users').where({
+      id
+    }).first()
+
+    return reply.send({ user })
   })
 
   // create an user
@@ -45,9 +60,25 @@ export async function usersRoutes(app: FastifyInstance) {
       name,
       email,
       session_id: sessionId,
-      created_at: new Date(),
     })
 
     return reply.status(201).send({ message: 'User create successfully!' })
+  })
+
+  app.get('/me', async (request, reply) => {
+    const sessionId = request.cookies.sessionId
+
+    if (!sessionId) {
+      return reply.status(401).send({ message: "Unauthorized." })
+    }
+
+    // route to return user's own data
+    const user = await knex('users').where({ session_id: sessionId }).first()
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found." })
+    }
+
+    return reply.send({ user })
   })
 }
