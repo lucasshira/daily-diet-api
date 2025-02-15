@@ -1,9 +1,9 @@
-// Rota de Usuarios
+// Users route
 
 import { FastifyInstance } from "fastify";
 import { knex } from "../database";
 import z from 'zod'
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 
 export async function usersRoutes(app: FastifyInstance) {
   // list all users
