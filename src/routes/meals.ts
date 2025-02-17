@@ -5,6 +5,7 @@ import { knex } from "../database";
 import z from 'zod'
 import { checkSessionIdExists } from "../middlewares/check-session-id-exists";
 import { randomUUID } from "crypto";
+import { uuidSchema } from "./schema/uuid-schema";
 
 export function mealsRoute(app: FastifyInstance) {
   // create a meal
@@ -31,9 +32,84 @@ export function mealsRoute(app: FastifyInstance) {
     return reply.status(201).send({ message: "Meal created successfully!" })
   })
 
+  // list all meals
   app.get('/meals', async (request, reply) => {
     const meals = await knex('meals').select('*')
 
     return reply.send({ meals })
+  })
+
+  // get a specific meal by its id
+  app.get('/meals/:id', async (request, reply) => {
+    const { id } = uuidSchema.parse(request.params)
+
+    const meal = await knex('meals').where({
+      id
+    }).first()
+
+    if (!meal) {
+      return reply.status(404).send({ message: 'Meal not found.' })
+    }
+
+    return reply.send({ meal })
+  })
+
+  // get all meals of an user
+  app.get('/meals/user/:id', async (request, reply) => {
+    const { id } = uuidSchema.parse(request.params)
+
+    const meals = await knex('meals').where({
+      user_id: id
+    })
+
+    if (meals.length === 0) {
+      return reply.status(404).send({ message: 'No meals found for this user.' })
+    }
+
+    return reply.send({ meals })
+  })
+
+  // editing info about a meal
+  app.put('/meals/:id', async (request, reply) => {
+    const { id } = uuidSchema.parse(request.params)
+
+    const updateMealSchemaBody = z.object({
+      name: z.string(),
+      description: z.string(),
+      is_on_diet: z.boolean(),
+      date: z.coerce.date(),
+    })
+
+    const { name, description, is_on_diet, date } = updateMealSchemaBody.parse(request.body)
+
+    const meal = await knex('meals').where({ id }).first()
+
+    if (!meal) {
+      return reply.status(404).send({ message: 'Meal not found.' })
+    }
+
+    await knex('meals').where({ id }).update({
+      name,
+      description,
+      is_on_diet,
+      date
+    })
+
+    return reply.status(204).send()
+  })
+
+  // delete a meal
+  app.delete('/meals/:id', async (request, reply) => {
+    const { id } = uuidSchema.parse(request.params)
+
+    const meal = await knex('meals').where({
+      id
+    }).first().delete()
+
+    if (!meal) {
+      return reply.status(404).send({ message: 'Meal not found.' })
+    }
+
+    return reply.status(204).send()
   })
 }
