@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 
 export async function usersRoutes(app: FastifyInstance) {
   // list all users
-  app.get('/users', async (request, reply) => {
+  app.get('/users', async (_, reply) => {
     const users = await knex('users').select('*')
 
     return reply.send({ users })

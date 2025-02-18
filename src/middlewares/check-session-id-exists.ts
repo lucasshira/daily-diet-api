@@ -19,5 +19,5 @@ export async function checkSessionIdExists(
     return reply.status(401).send({ message: "User not found." })
   }
   
-  request.user = user
+  request.user = { id: user.id }
 }

@@ -40,8 +40,9 @@ export function mealsRoute(app: FastifyInstance) {
   })
 
   // get a specific meal by its id
-  app.get('/meals/:id', async (request, reply) => {
+  app.get('/meals/:id', { preHandler: checkSessionIdExists }, async (request, reply) => {
     const { id } = uuidSchema.parse(request.params)
+    const userId = request.user?.id
 
     const meal = await knex('meals').where({
       id
@@ -49,6 +50,10 @@ export function mealsRoute(app: FastifyInstance) {
 
     if (!meal) {
       return reply.status(404).send({ message: 'Meal not found.' })
+    }
+
+    if (meal.user_id !== userId) {
+      return reply.status(403).send({ message: 'You are not authorized to access this meal.' })
     }
 
     return reply.send({ meal })
@@ -60,7 +65,7 @@ export function mealsRoute(app: FastifyInstance) {
 
     const meals = await knex('meals').where({
       user_id: id
-    })
+    }).orderBy('date', 'desc')
 
     if (meals.length === 0) {
       return reply.status(404).send({ message: 'No meals found for this user.' })
@@ -70,8 +75,9 @@ export function mealsRoute(app: FastifyInstance) {
   })
 
   // editing info about a meal
-  app.put('/meals/:id', async (request, reply) => {
+  app.put('/meals/:id', { preHandler: [checkSessionIdExists] }, async (request, reply) => {
     const { id } = uuidSchema.parse(request.params)
+    const userId = request.user?.id
 
     const updateMealSchemaBody = z.object({
       name: z.string(),
@@ -88,6 +94,10 @@ export function mealsRoute(app: FastifyInstance) {
       return reply.status(404).send({ message: 'Meal not found.' })
     }
 
+    if (meal.user_id !== userId) {
+      return reply.status(403).send({ message: 'You are not authorized to access this meal.' })
+    }
+
     await knex('meals').where({ id }).update({
       name,
       description,
@@ -99,17 +109,64 @@ export function mealsRoute(app: FastifyInstance) {
   })
 
   // delete a meal
-  app.delete('/meals/:id', async (request, reply) => {
+  app.delete('/meals/:id', { preHandler: [checkSessionIdExists] }, async (request, reply) => {
     const { id } = uuidSchema.parse(request.params)
+    const userId = request.user?.id
 
     const meal = await knex('meals').where({
       id
-    }).first().delete()
-
+    }).first()
+    
     if (!meal) {
       return reply.status(404).send({ message: 'Meal not found.' })
     }
+    
+    if (meal.user_id !== userId) {
+      return reply.status(403).send({ message: 'You are not authorized to delete this meal.' })
+    }
+
+    await knex('meals').where({ id }).first().delete()
 
     return reply.status(204).send()
+  })
+
+  // metrics
+  app.get('/metrics', { preHandler: checkSessionIdExists }, async (request, reply) => {
+    const userId = request.user?.id
+
+    const totalMealsOnDiet = await knex('meals')
+      .where({ user_id: userId, is_on_diet: true })
+      .count('id', { as: 'total' })
+      .first()
+
+    const totalMealsOffDiet = await knex('meals')
+      .where({ user_id: userId, is_on_diet: false })
+      .count('id', { as: 'total' })
+      .first()
+
+    const totalMeals = await knex('meals')
+      .where({ user_id: userId })
+      .orderBy('date', 'desc')
+
+    const { bestOnDietSequence } = totalMeals.reduce((acc, meal) => {
+      if (meal.is_on_diet) {
+        acc.currentSequence += 1
+      } else {
+        acc.currentSequence = 0
+      }
+
+      if (acc.currentSequence > acc.bestOnDietSequence) {
+        acc.bestOnDietSequence = acc.currentSequence
+      }
+
+      return acc;
+    }, { bestOnDietSequence: 0, currentSequence: 0 })
+
+    return reply.send({
+      totalMeals: totalMeals.length,
+      totalMealsOnDiet: totalMealsOnDiet?.total,
+      totalMealsOffDiet: totalMealsOffDiet?.total,
+      bestOnDietSequence
+    })
   })
 }
