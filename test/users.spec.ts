@@ -14,8 +14,8 @@ describe('Users route', () => {
     await app.close()
   })
 
-  beforeEach(() => {
-    execSync('npm run knex migrate:rollback -all')
+  beforeEach(async () => {
+    execSync('npm run knex migrate:rollback --all')
     execSync('npm run knex migrate:latest')
   })
 
@@ -32,7 +32,7 @@ describe('Users route', () => {
     )
   })
 
-  it(`should be able to return user's data`, async () => {
+  it(`should be able to get user's data`, async () => {
     const response = await request(app.server)
       .post('/users')
       .send({ name: 'John Doe', email: 'johndoe@email.com' })
@@ -51,4 +51,3 @@ describe('Users route', () => {
     })
   })
 })
-

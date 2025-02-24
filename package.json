@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "knex": "node --import tsx ./node_modules/knex/bin/cli.js",
-    "test": "vitest --run"
+    "test:users": "vitest run test/users.spec.ts",
+    "test:meals": "vitest run test/meals.spec.ts",
+    "test": "npm run test:users && npm run test:meals"
   },
   "keywords": [],
   "author": "",
